@@ -9,7 +9,8 @@ from torchvision.models.vgg import VGG
 
 from six.moves import cPickle  # 序列化
 import numpy as np
-import scipy.misc
+#import scipy.misc
+import imageio
 import os
 
 from evaluate import evaluate_class
@@ -191,8 +192,8 @@ class VGGNetFeat(object):
             for d in data.itertuples():  # 组成(Index,img,cls)的元组
                 d_img, d_cls = getattr(d, "img"), getattr(d, "cls")
                 # 将图像读出来保存在numpy类型数组
-                img = scipy.misc.imread(d_img, mode="RGB")  # 已经被弃用了，用imageio.imread
-                img = img[:, :, ::-1]  # switch to BGR 第三个维度倒序
+                img = imageio.imread(d_img,pilmode="RGB")  # 必须设置pilmode关键字参数为"RGB",否则无法处理灰度图
+                img = img[:,:,::-1]  # switch to BGR 第三个维度倒序
                 img = np.transpose(img, (2, 0, 1)) / 255.  # 转置成C*H*W
                 img[0] -= means[0]  # reduce B's mean
                 img[1] -= means[1]  # reduce G's mean
