@@ -21,7 +21,9 @@ class Database(object):
         with open(DB_csv, 'w', encoding='UTF-8') as f:
             f.write("img,cls")
             for root, _, files in os.walk(DB_dir, topdown=False):
-                cls = root.split('/')[-1]
+                print(root)
+                print(root.split('\\'))
+                cls = root.split('\\')[-1]  # windows环境下分隔符需要修改为\\形式
                 for name in files:
                     if not name.endswith('.jpg'):
                         continue
