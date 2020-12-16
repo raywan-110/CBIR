@@ -64,7 +64,7 @@ def AP(label, results, sort=True):
         return 0.
     return np.mean(precision)
 
-
+# 测试检索性能
 def infer(query,
           samples=None,
           db=None,
