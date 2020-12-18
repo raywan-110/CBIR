@@ -177,11 +177,11 @@ class VGGNetFeat(object):
                 open(os.path.join(cache_dir, sample_cache), "rb",
                      True))  # 从cache中读入并恢复python对象
             # 重新计算每一个图像的特征(理论上不需要)，并将python对象序列化存入缓存
-            for sample in samples:
-                sample['hist'] /= np.sum(sample['hist'])  # normalize
-            cPickle.dump(samples,
-                         open(os.path.join(cache_dir, sample_cache), "wb",
-                              True))  # 向cache中存入normalize过后的featrues
+            # for sample in samples:
+            #     sample['hist'] /= np.sum(sample['hist'])  # normalize
+            # cPickle.dump(samples,
+            #              open(os.path.join(cache_dir, sample_cache), "wb",
+            #                   True))  # 向cache中存入normalize过后的featrues
             if verbose:
                 print(
                     "Using cache..., config=%s, distance=%s, depth=%s" %
