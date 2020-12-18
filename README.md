@@ -7,7 +7,7 @@
 ## 数据库
 > 采用9144张图片, 101类别的小型图像数据库进行初步测试.
 ## 结果
-| 模型 | 描述子  | 检索算法  | 距离函数  | MMAP  |  average time  |
+| 模型 | 描述子  | 检索算法  | 距离函数  | MMAP  |  average time(CPU)  |
 | ---- | ---- | ---- | ---- | ---- | ---- |
-| vggnet | average features | Linear search | cosine |  |  |
+| vggnet | average features | Linear search | cosine | 77.0315% | 0.6130s |
 | vggnet | average features | LSH(with random projection) | cosine | **98.6919%** | **0.0165s** |

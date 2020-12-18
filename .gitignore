@@ -129,5 +129,4 @@ dmypy.json
 
 # dataset
 database
-result
 *.vscode
