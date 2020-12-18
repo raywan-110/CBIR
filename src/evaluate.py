@@ -153,9 +153,10 @@ def evaluate_class(db, f_class=None, f_instance=None, depth=None, d_type='d1'):
     elif f_instance:
         f = f_instance
     samples, lsh = f.make_samples(db, mode)  # 调用f的make_samples的方法
-    for query in samples:
+    for i, query in enumerate(samples):
         # 传入samples与lsh表
         ap, _ = infer(query, mode, samples=samples, lsh=lsh, depth=depth, d_type=d_type)
+        print("image{} finished!".format(i))
         ret[query['cls']].append(ap)
 
     return ret
