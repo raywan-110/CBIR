@@ -24,7 +24,7 @@ from DB import Database
 # configs for histogram
 VGG_model = 'vgg19'  # model type
 pick_layer = 'avg'  # extract feature of this layer
-d_type = 'd1'  # distance type
+d_type = 'cosine'  # distance type
 feat_dim = 512  # 输出特征的维度
 # TODO 建议把特征提取的选择也加到一个文件中，方便后面整合做UI
 depth = 3  # retrieved depth, set to None will count the ap for whole database 返回top depth张图像
@@ -170,8 +170,7 @@ def make_layers(cfg, batch_norm=False):
 
 
 class VGGNetFeat(object):
-    def make_samples(self, db, retrival_mode, verbose=True):
-        mode = retrival_mode  # 检索模式
+    def make_samples(self, db, verbose=True):
         sample_cache = '{}-{}'.format(VGG_model, pick_layer)
         try:
             samples = cPickle.load(
@@ -185,7 +184,6 @@ class VGGNetFeat(object):
                               True))  # 向cache中存入normalize过后的featrues
             if verbose:
                 print(
-                    retrival_mode, " mode:",
                     "Using cache..., config=%s, distance=%s, depth=%s" %
                     (sample_cache, d_type, depth))
         # 没有则生成特征描述文件
@@ -232,26 +230,22 @@ class VGGNetFeat(object):
             cPickle.dump(samples,
                          open(os.path.join(cache_dir, sample_cache), "wb",
                               True))  # 序列化后存入缓存中
-        # 选择检索模式
-        if mode == 'LSH':
-            try:
-                lsh = cPickle.load(
-                    open(os.path.join(lshCache_dir, sample_cache), "rb",
-                         True))  # 读入hashtable
-            except:
-                # 需要重新生成
-                lsh = LSHash(hash_size=12,input_dim=feat_dim,num_hashtables=3)
-                for i, sample in enumerate(samples):
-                    input_vec = sample['hist']
-                    # extra = {'img': sample['img'], 'cls': sample['cls']}
-                    extra = (sample['img'], sample['cls'])
-                    lsh.index(input_vec.flatten(), extra_data=extra)  # 哈希表中存储结构：[((vec),img,cls)]
-                cPickle.dump(lsh,
-                             open(os.path.join(lshCache_dir, sample_cache),
-                                  "wb", True))  # 序列化后存入缓存中
-            return samples, lsh
-        else:
-            return samples
+        try:
+            lsh = cPickle.load(
+                open(os.path.join(lshCache_dir, sample_cache), "rb",
+                     True))  # 读入hashtable
+        except:
+            # 需要重新生成
+            lsh = LSHash(hash_size=12,input_dim=feat_dim,num_hashtables=3)
+            for i, sample in enumerate(samples):
+                input_vec = sample['hist']
+                # extra = {'img': sample['img'], 'cls': sample['cls']}
+                extra = (sample['img'], sample['cls'])
+                lsh.index(input_vec.flatten(), extra_data=extra)  # 哈希表中存储结构：[((vec),img,cls)]
+            cPickle.dump(lsh,
+                         open(os.path.join(lshCache_dir, sample_cache),
+                              "wb", True))  # 序列化后存入缓存中
+        return samples, lsh
 
 
 if __name__ == "__main__":
@@ -264,7 +258,7 @@ if __name__ == "__main__":
 
     cls_MAPs = []
     with open(os.path.join(result_dir, result_csv), 'w', encoding='UTF-8') as f:
-        f.write("Vgg-LSH-cosine reusult: MAP&MMAP")
+        f.write("Vgg-Linear-cosine reusult: MAP&MMAP")
         for cls, cls_APs in APs.items():
             MAP = np.mean(cls_APs)
             print("Class {}, MAP {}".format(cls, MAP))
