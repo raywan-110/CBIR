@@ -5,7 +5,7 @@ from __future__ import print_function
 from scipy import spatial
 import numpy as np
 
-
+mode = 'LSH'
 class Evaluation(object):
     def make_samples(self):
         raise NotImplementedError("Needs to implemented this method")
@@ -66,8 +66,9 @@ def AP(label, results, sort=True):
 
 # 测试检索性能
 def infer(query,
+          mode,
           samples=None,
-          db=None,
+          lsh=None,
           sample_db_fn=None,
           depth=None,
           d_type='d1'):
@@ -85,31 +86,28 @@ def infer(query,
                                 'cls': <img class>,
                                 'hist' <img histogram>
                               }
-      db          : an instance of class Database
       sample_db_fn: a function making samples, should be given if Database != None
       depth       : retrieved depth during inference, the default depth is equal to database size
       d_type      : distance type
   '''
-    assert samples is not None or (
-        db is not None and sample_db_fn
-        is not None), "need to give either samples or db plus sample_db_fn"
-    if db:
-        samples = sample_db_fn(db)  
-
+    #TODO 选择检索模式
     q_img, q_cls, q_hist = query['img'], query['cls'], query['hist']
-    results = []
-    # 线性检索，可以优化！！！
-    for idx, sample in enumerate(samples):
-        s_img, s_cls, s_hist = sample['img'], sample['cls'], sample['hist']
-        if q_img == s_img:  # 相同的图片不算
-            continue
-        results.append({
-            'dis': distance(q_hist, s_hist, d_type=d_type),
-            'cls': s_cls
-        })
-    results = sorted(results, key=lambda x: x['dis'])
-    if depth and depth <= len(results):
-        results = results[:depth]  # 返回top-k检索结果
+    if mode == 'LSH':
+        results = lsh.query(query_point=q_hist, num_results=depth,distance_func="cosine")
+    else:      
+        results = []
+        for idx, sample in enumerate(samples):
+            s_img, s_cls, s_hist = sample['img'], sample['cls'], sample['hist']
+            if q_img == s_img:  # 相同的图片不算
+                continue
+            results.append({
+                'dis': distance(q_hist, s_hist, d_type=d_type),
+                'cls': s_cls
+            })
+        results = sorted(results, key=lambda x: x['dis'])
+        if depth and depth <= len(results):
+            results = results[:depth]  # 返回top-k检索结果
+    #####
     ap = AP(q_cls, results, sort=False)
 
     return ap, results
@@ -154,9 +152,10 @@ def evaluate_class(db, f_class=None, f_instance=None, depth=None, d_type='d1'):
         f = f_class()
     elif f_instance:
         f = f_instance
-    samples = f.make_samples(db)  # 调用f的make_samples的方法
+    samples, lsh = f.make_samples(db, mode)  # 调用f的make_samples的方法
     for query in samples:
-        ap, _ = infer(query, samples=samples, depth=depth, d_type=d_type)
+        # 传入samples与lsh表
+        ap, _ = infer(query, mode, samples=samples, lsh=lsh, depth=depth, d_type=d_type)
         ret[query['cls']].append(ap)
 
     return ret

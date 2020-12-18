@@ -1,17 +1,18 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import print_function
-
+from lsh import LSHash
 import torch
 import torch.nn as nn
 from torchvision import models
 from torchvision.models.vgg import VGG
 
 from six.moves import cPickle  # 序列化
+import csv
 import numpy as np
-#import scipy.misc
 import imageio
 import os
+import time
 
 from evaluate import evaluate_class
 from DB import Database
@@ -24,8 +25,9 @@ from DB import Database
 VGG_model = 'vgg19'  # model type
 pick_layer = 'avg'  # extract feature of this layer
 d_type = 'd1'  # distance type
-
-depth = 3  # retrieved depth, set to None will count the ap for whole database 返回top k张图像
+feat_dim = 512  # 输出特征的维度
+# TODO 建议把特征提取的选择也加到一个文件中，方便后面整合做UI
+depth = 3  # retrieved depth, set to None will count the ap for whole database 返回top depth张图像
 ''' MMAP
      depth
       depthNone, vgg19,avg,d1, MMAP 0.688624709114
@@ -53,8 +55,14 @@ means = np.array([103.939, 116.779, 123.68
 
 # cache dir
 cache_dir = 'cache'
-if not os.path.exists(cache_dir):
-    os.makedirs(cache_dir)
+lshCache_dir = 'lshCache'
+if not os.path.exists(lshCache_dir):
+    os.makedirs(lshCache_dir)
+# 记录实验结果
+result_dir = 'result'
+result_csv = 'result.csv'
+if not os.path.exists(result_dir):
+    os.makedirs(result_dir)
 
 
 class VGGNet(VGG):
@@ -67,7 +75,6 @@ class VGGNet(VGG):
         super().__init__(make_layers(cfg[model]))
         self.ranges = ranges[model]
         self.fc_ranges = ((0, 2), (2, 5), (5, 7))
-
         if pretrained:
             exec(
                 "self.load_state_dict(models.%s(pretrained=True).state_dict())"
@@ -121,6 +128,7 @@ class VGGNet(VGG):
 
         return output
 
+
 # 设置 vgg的参数
 ranges = {
     'vgg11': ((0, 3), (3, 6), (6, 11), (11, 16), (16, 21)),
@@ -162,21 +170,25 @@ def make_layers(cfg, batch_norm=False):
 
 
 class VGGNetFeat(object):
-    def make_samples(self, db, verbose=True):
+    def make_samples(self, db, retrival_mode, verbose=True):
+        mode = retrival_mode  # 检索模式
         sample_cache = '{}-{}'.format(VGG_model, pick_layer)
-
         try:
             samples = cPickle.load(
-                open(os.path.join(cache_dir, sample_cache), "rb", True))  # 从cache中读入并恢复python对象
+                open(os.path.join(cache_dir, sample_cache), "rb",
+                     True))  # 从cache中读入并恢复python对象
+            # 重新计算每一个图像的特征(理论上不需要)，并将python对象序列化存入缓存
             for sample in samples:
                 sample['hist'] /= np.sum(sample['hist'])  # normalize
-            cPickle.dump(
-                samples, open(os.path.join(cache_dir, sample_cache), "wb",
+            cPickle.dump(samples,
+                         open(os.path.join(cache_dir, sample_cache), "wb",
                               True))  # 向cache中存入normalize过后的featrues
             if verbose:
-                print("Using cache..., config=%s, distance=%s, depth=%s" %
-                      (sample_cache, d_type, depth))
-        # 重新计算每一个图像的特征，并将python对象序列化存入缓存
+                print(
+                    retrival_mode, " mode:",
+                    "Using cache..., config=%s, distance=%s, depth=%s" %
+                    (sample_cache, d_type, depth))
+        # 没有则生成特征描述文件
         except:
             if verbose:
                 print(
@@ -187,13 +199,14 @@ class VGGNetFeat(object):
             vgg_model.eval()
             if use_gpu:
                 vgg_model = vgg_model.cuda()
-            samples = []
+            samples = []  # 构造存储特征的列表
             data = db.get_data()
             for d in data.itertuples():  # 组成(Index,img,cls)的元组
                 d_img, d_cls = getattr(d, "img"), getattr(d, "cls")
                 # 将图像读出来保存在numpy类型数组
-                img = imageio.imread(d_img,pilmode="RGB")  # 必须设置pilmode关键字参数为"RGB",否则无法处理灰度图
-                img = img[:,:,::-1]  # switch to BGR 第三个维度倒序
+                img = imageio.imread(
+                    d_img, pilmode="RGB")  # 必须设置pilmode关键字参数为"RGB",否则无法处理灰度图
+                img = img[:, :, ::-1]  # switch to BGR 第三个维度倒序
                 img = np.transpose(img, (2, 0, 1)) / 255.  # 转置成C*H*W
                 img[0] -= means[0]  # reduce B's mean
                 img[1] -= means[1]  # reduce G's mean
@@ -210,26 +223,54 @@ class VGGNetFeat(object):
                     d_hist = np.sum(d_hist.data.cpu().numpy(), axis=0)
                     d_hist /= np.sum(d_hist)  # normalize
                     samples.append({
-                        'img': d_img,   # y原图像
-                        'cls': d_cls,   # 类别标签
+                        'img': d_img,  # y原图像
+                        'cls': d_cls,  # 类别标签
                         'hist': d_hist  # 特征
                     })
                 except:
                     pass
-            cPickle.dump(
-                samples, open(os.path.join(cache_dir, sample_cache), "wb",
+            cPickle.dump(samples,
+                         open(os.path.join(cache_dir, sample_cache), "wb",
                               True))  # 序列化后存入缓存中
-
-        return samples
+        # 选择检索模式
+        if mode == 'LSH':
+            try:
+                lsh = cPickle.load(
+                    open(os.path.join(lshCache_dir, sample_cache), "rb",
+                         True))  # 读入hashtable
+            except:
+                # 需要重新生成
+                lsh = LSHash(hash_size=12,input_dim=feat_dim,num_hashtables=3)
+                for i, sample in enumerate(samples):
+                    input_vec = sample['hist']
+                    # extra = {'img': sample['img'], 'cls': sample['cls']}
+                    extra = (sample['img'], sample['cls'])
+                    lsh.index(input_vec.flatten(), extra_data=extra)  # 哈希表中存储结构：[((vec),img,cls)]
+                cPickle.dump(lsh,
+                             open(os.path.join(lshCache_dir, sample_cache),
+                                  "wb", True))  # 序列化后存入缓存中
+            return samples, lsh
+        else:
+            return samples
 
 
 if __name__ == "__main__":
     # evaluate database
     db = Database()
-    APs = evaluate_class(db, f_class=VGGNetFeat, d_type=d_type, depth=depth)  # 检索top-3图片,返回平均准确率
+    start = time.time()
+    APs = evaluate_class(db, f_class=VGGNetFeat, d_type=d_type,
+                         depth=depth)  # 检索top-3图片,返回平均准确率
+    end = time.time()
+
     cls_MAPs = []
-    for cls, cls_APs in APs.items():
-        MAP = np.mean(cls_APs)
-        print("Class {}, MAP {}".format(cls, MAP))
-        cls_MAPs.append(MAP)
-    print("MMAP", np.mean(cls_MAPs))
+    with open(os.path.join(result_dir, result_csv), 'w', encoding='UTF-8') as f:
+        f.write("Vgg-LSH-cosine reusult: MAP&MMAP")
+        for cls, cls_APs in APs.items():
+            MAP = np.mean(cls_APs)
+            print("Class {}, MAP {}".format(cls, MAP))
+            f.write("\nClass {}, MAP {}".format(cls, MAP))
+            cls_MAPs.append(MAP)
+        print("MMAP", np.mean(cls_MAPs))
+        f.write("\nMMAP {}".format(np.mean(cls_MAPs)))
+        print("total time:",end - start)
+        f.write("\ntotal time:{0:.4f}s".format(end - start))
