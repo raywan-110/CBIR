@@ -27,7 +27,7 @@ pick_layer = 'avg'  # extract feature of this layer
 d_type = 'cosine'  # distance type
 feat_dim = 512  # 输出特征的维度
 # TODO 建议把特征提取的选择也加到一个文件中，方便后面整合做UI
-depth = 3  # retrieved depth, set to None will count the ap for whole database 返回top depth张图像
+depth = 10  # retrieved depth, set to None will count the ap for whole database 返回top depth张图像
 ''' MMAP
      depth
       depthNone, vgg19,avg,d1, MMAP 0.688624709114
@@ -236,7 +236,7 @@ class VGGNetFeat(object):
                      True))  # 读入hashtable
         except:
             # 需要重新生成
-            lsh = LSHash(hash_size=12,input_dim=feat_dim,num_hashtables=3)
+            lsh = LSHash(hash_size=32,input_dim=feat_dim,num_hashtables=32)
             for i, sample in enumerate(samples):
                 input_vec = sample['hist']
                 # extra = {'img': sample['img'], 'cls': sample['cls']}
