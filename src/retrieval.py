@@ -2,7 +2,9 @@ from evaluate import infer
 from DB import Database
 import time
 import numpy as np
-from vggnet import VGGNetFeat, VGGNet
+from vggnet import VGGNetFeat
+from model import ModelFeat
+from triplet_net import VGGNet
 from resnet import ResNetFeat
 import imageio
 import torch
@@ -19,18 +21,21 @@ mode1 = 'LSH'
 VGG_model = 'vgg19'  # model type
 pick_layer = 'avg'  # extract feature of this layer
 feat_dim = 512  # 输出特征的维度
+LOAD_MODEL_PATH = 'trained_model/model_simple.pth'
 
 # img = 'D:\\Users\\15657\\Desktop\\image_0003_flip.jpg'
-
 if __name__ == '__main__':
     db = Database()
     img = filedialog.askopenfilename()
 
     # retrieve by VGG
-    method = VGGNetFeat()
+    # method = VGGNetFeat()
+    method = ModelFeat()
     samples, lsh = method.make_samples(db, mode1)
 
-    model = VGGNet(requires_grad=False, model=VGG_model)
+    # model = VGGNet(requires_grad=False, model=VGG_model)
+    # 测试fine_tune的模型
+    model = VGGNet(load_model_path=LOAD_MODEL_PATH, model=VGG_model, requires_grad=False)
     model.eval()
 
     imag = imageio.imread(img, pilmode="RGB")
@@ -52,13 +57,18 @@ if __name__ == '__main__':
     hist /= np.sum(hist)  # normalize
 
     query = {'img': img, 'cls': None, 'hist': hist}
-    _, results = infer(query, mode1, samples=samples, lsh=lsh, depth=depth, d_type=d_type)
+    _, results = infer(query,
+                       mode1,
+                       samples=samples,
+                       lsh=lsh,
+                       depth=depth,
+                       d_type=d_type)
 
     for i, e in enumerate(results):
         img_path = e['img']
         image = imageio.imread(img_path, pilmode="RGB")
 
-        plt.subplot(2, 5, i+1)
+        plt.subplot(2, 5, i + 1)
         plt.imshow(image)
 
     plt.show()
