@@ -40,7 +40,7 @@ def distance(v1, v2, d_type='d1'):
         return np.sum((v1 - v2)**2)
 
 
-def AP(label, results, sort=True):
+def AP(label, results, sort=False):
     ''' infer a query, return it's ap
 
     arguments
@@ -59,7 +59,7 @@ def AP(label, results, sort=True):
     for i, result in enumerate(results):
         if result['cls'] == label:
             hit += 1
-            precision.append(hit / (i + 1.))
+            precision.append(hit / (i + 1.))  # 查准率
     if hit == 0:
         return 0.
     return np.mean(precision)
@@ -93,7 +93,7 @@ def infer(query,
     #TODO 选择检索模式
     q_img, q_cls, q_hist = query['img'], query['cls'], query['hist']
     if mode == 'LSH':
-        results = lsh.query(query_point=q_hist, num_results=depth,distance_func="cosine")
+        results = lsh.query(query_point=q_hist, img_addr=q_img, num_results=depth,distance_func="cosine")
     else:      
         results = []
         for idx, sample in enumerate(samples):
@@ -108,8 +108,7 @@ def infer(query,
         if depth and depth <= len(results):
             results = results[:depth]  # 返回top-k检索结果
     #####
-    ap = AP(q_cls, results, sort=False)
-
+    ap = AP(q_cls, results, sort=(mode=='Linear'))  # 采用线性模式才排序
     return ap, results
 
 
