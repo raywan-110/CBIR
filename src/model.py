@@ -32,7 +32,7 @@ result_csv = 'vgg19_finetune_lsh_simple.csv'
 if not os.path.exists(result_dir):
     os.makedirs(result_dir)
 
-model = 'vgg19_finetune_simple'
+model = 'vgg19_f_lsh_onsim'
 depth = 10
 d_type = 'cosine'  # distance type
 feat_dim = 512  # 输出特征的维度
@@ -93,7 +93,7 @@ class ModelFeat(object):
             lsh = cPickle.load(open(os.path.join(lsh_Cache_dir, sample_cache), "rb", True))  # 读入hashtable
         except:
             # 需要重新生成
-            lsh = LSHash(hash_size=12, input_dim=feat_dim, num_hashtables=3)
+            lsh = LSHash(hash_size=8, input_dim=feat_dim, num_hashtables=4)
             for i, sample in enumerate(samples):
                 input_vec = sample['hist']
                 extra = (sample['img'], sample['cls'])
