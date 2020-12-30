@@ -150,7 +150,7 @@ class LSHash(object):
             table.append_val(self._hash(self.uniform_planes[i],input_point), value)
 
     # 根据距离函数返回query_features对应的结果(可以是个数也可以是排序后的结果)
-    def query(self, query_point, num_results=None, distance_func=None):
+    def query(self, query_point, img_addr, num_results=None, distance_func=None):
         """ 接受一个查询的向量， 根据距离计算函数返回匹配的结果
         :param query_point:
             A list, or tuple, or numpy ndarray, 维度必须是 1 * `input_dim`.
@@ -202,8 +202,8 @@ class LSHash(object):
 
         # 用距离向量对condidate进行排序 condidate格式： {value1, value2, value3...} value是安全的tuple类型
         print('retrival condidates length:',len(candidates))
-        candidates = [{'dis':d_func(query_point, self._as_np_array(ix)),'cls':ix[1][1]}  
-                      for ix in candidates if d_func(query_point, self._as_np_array(ix)) != 0.0]
+        candidates = [{'dis':d_func(query_point, self._as_np_array(ix)),"img":ix[1][0],'cls':ix[1][1]}  
+                      for ix in candidates if img_addr != ix[1][0]]
         candidates = sorted(candidates, key=lambda x: x['dis'])  # 用距离进行排序
 
         return candidates[:num_results] if num_results and num_results < len(candidates) else candidates
