@@ -127,6 +127,10 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# dataset
-database
+# others
+/database
 *.vscode
+/cache/
+/lshCache
+/result
+*test
