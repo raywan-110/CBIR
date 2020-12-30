@@ -3,7 +3,7 @@
 import os
 import json
 import numpy as np
-from storage import storage  # import写好的storage
+from .storage import storage  # import写好的storage
 
 try:
     from bitarray import bitarray

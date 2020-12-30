@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import print_function
-from lsh import LSHash
+from LSH.lsh import LSHash
 import torch
 import torch.nn as nn
 from torchvision import models
@@ -236,7 +236,7 @@ class VGGNetFeat(object):
                      True))  # 读入hashtable
         except:
             # 需要重新生成
-            lsh = LSHash(hash_size=32,input_dim=feat_dim,num_hashtables=32)
+            lsh = LSHash(hash_size=12,input_dim=feat_dim,num_hashtables=8)
             for i, sample in enumerate(samples):
                 input_vec = sample['hist']
                 # extra = {'img': sample['img'], 'cls': sample['cls']}
