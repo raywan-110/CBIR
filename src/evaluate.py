@@ -5,7 +5,9 @@ from __future__ import print_function
 from scipy import spatial
 import numpy as np
 
-mode = 'LSH'
+mode = 'Linear'
+
+
 class Evaluation(object):
     def make_samples(self):
         raise NotImplementedError("Needs to implemented this method")
@@ -18,7 +20,7 @@ def distance(v1, v2, d_type='d1'):
         return np.sum(np.absolute(v1 - v2))
     # L2范数 欧氏距离
     elif d_type == 'd2':
-        return np.sum((v1 - v2)**2)
+        return np.sum((v1 - v2) ** 2)
     # 正则化的欧氏距离 
     elif d_type == 'd2-norm':
         return 2 - 2 * np.dot(v1, v2)
@@ -37,10 +39,10 @@ def distance(v1, v2, d_type='d1'):
     elif d_type == 'cosine':
         return spatial.distance.cosine(v1, v2)
     elif d_type == 'square':
-        return np.sum((v1 - v2)**2)
+        return np.sum((v1 - v2) ** 2)
 
 
-def AP(label, results, sort=False):
+def AP(label, results, sort=True):
     ''' infer a query, return it's ap
 
     arguments
@@ -51,7 +53,7 @@ def AP(label, results, sort=False):
                  'cls': <sample's class>
                }
       sort   : sort the results by distance
-  '''
+    '''
     if sort:
         results = sorted(results, key=lambda x: x['dis'])
     precision = []
@@ -59,10 +61,11 @@ def AP(label, results, sort=False):
     for i, result in enumerate(results):
         if result['cls'] == label:
             hit += 1
-            precision.append(hit / (i + 1.))  # 查准率
+            precision.append(hit / (i + 1.))
     if hit == 0:
         return 0.
     return np.mean(precision)
+
 
 # 测试检索性能
 def infer(query,
@@ -90,25 +93,44 @@ def infer(query,
       depth       : retrieved depth during inference, the default depth is equal to database size
       d_type      : distance type
   '''
-    #TODO 选择检索模式
+    # TODO 选择检索模式
     q_img, q_cls, q_hist = query['img'], query['cls'], query['hist']
     if mode == 'LSH':
-        results = lsh.query(query_point=q_hist, img_addr=q_img, num_results=depth,distance_func="cosine")
-    else:      
+        results = lsh.query(query_point=q_hist, img_addr=q_img, num_results=depth, distance_func="cosine")
+    else:
         results = []
+        dis_l = []
         for idx, sample in enumerate(samples):
             s_img, s_cls, s_hist = sample['img'], sample['cls'], sample['hist']
             if q_img == s_img:  # 相同的图片不算
                 continue
-            results.append({
-                'dis': distance(q_hist, s_hist, d_type=d_type),
-                'cls': s_cls
-            })
+            if idx < depth:
+                results.append({
+                    'img': s_img,
+                    'dis': distance(q_hist, s_hist, d_type=d_type),
+                    'cls': s_cls
+                })
+                dis_l.append(results[-1]['dis'])
+                max_dis = max(dis_l)
+                max_index = dis_l.index(max_dis)
+            else:
+                dis = distance(q_hist, s_hist, d_type=d_type)
+                if dis < max_dis:
+                    results[max_index] = {
+                        'img': s_img,
+                        'dis': dis,
+                        'cls': s_cls
+                    }
+                    dis_l[max_index] = dis
+                    max_dis = max(dis_l)
+                    max_index = dis_l.index(max_dis)
+
         results = sorted(results, key=lambda x: x['dis'])
-        if depth and depth <= len(results):
+        if depth and depth < len(results):
             results = results[:depth]  # 返回top-k检索结果
     #####
-    ap = AP(q_cls, results, sort=(mode=='Linear'))  # 采用线性模式才排序
+    ap = AP(q_cls, results, sort=False)
+
     return ap, results
 
 
@@ -122,10 +144,11 @@ def evaluate(db, sample_db_fn, depth=None, d_type='d1'):
       d_type      : distance type
   '''
     classes = db.get_class()
+    print(classes)
     ret = {c: [] for c in classes}
 
     samples = sample_db_fn(db)  # 提前生成好samples
-    # 这里采用的是检索数据库中的每一张图片，我们需要修改或者增加检索外来图片的功能
+
     for query in samples:
         ap, _ = infer(query, samples=samples, depth=depth, d_type=d_type)
         ret[query['cls']].append(ap)
@@ -152,7 +175,7 @@ def evaluate_class(db, f_class=None, f_instance=None, depth=None, d_type='d1'):
     elif f_instance:
         f = f_instance
     samples, lsh = f.make_samples(db, mode)  # 调用f的make_samples的方法
-    for i, query in enumerate(samples):
+    for i, query in enumerate(samples[:50]):
         # 传入samples与lsh表
         ap, _ = infer(query, mode, samples=samples, lsh=lsh, depth=depth, d_type=d_type)
         print("image{} finished!".format(i))
