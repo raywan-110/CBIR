@@ -1,49 +1,44 @@
 from evaluate import infer
 from DB import Database
-import time
 import numpy as np
-from vggnet import VGGNetFeat
+from network import VGGNet
 from model import ModelFeat
-from triplet_net import VGGNet
-from resnet import ResNetFeat
 import imageio
 import torch
 import matplotlib.pyplot as plt
 from tkinter import filedialog
 from tkinter import *
+import torchvision.transforms as transforms
+from PIL import Image
 
-means = np.array([103.939, 116.779, 123.68]) / 255
 
 depth = 10
 d_type = 'cosine'
-query_idx = 10
-mode1 = 'LSH'
-VGG_model = 'vgg19'  # model type
+mode1 = 'Linear'
 pick_layer = 'avg'  # extract feature of this layer
 feat_dim = 512  # 输出特征的维度
-LOAD_MODEL_PATH = 'trained_model/model_simple.pth'
+# LOAD_MODEL_PATH = 'trained_model/model_simple.pth'
+LOAD_MODEL_PATH = None
 
-# img = 'D:\\Users\\15657\\Desktop\\image_0003_flip.jpg'
+IMAGE_NORMALIZER = transforms.Compose([transforms.ToTensor(),
+                                       transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+
+
 if __name__ == '__main__':
     db = Database()
-    img = filedialog.askopenfilename()
-
+    # img = filedialog.askopenfilename()
+    img = 'oxbuild_images/all_souls_000013.jpg'
     # retrieve by VGG
-    # method = VGGNetFeat()
-    method = ModelFeat()
+    method = ModelFeat
     samples, lsh = method.make_samples(db, mode1)
 
-    # model = VGGNet(requires_grad=False, model=VGG_model)
-    # 测试fine_tune的模型
-    model = VGGNet(load_model_path=LOAD_MODEL_PATH, model=VGG_model, requires_grad=False)
+    model = VGGNet(load_model_path=LOAD_MODEL_PATH, requires_grad=False)
     model.eval()
 
     imag = imageio.imread(img, pilmode="RGB")
-    imag = imag[:, :, ::-1]  # switch to BGR 第三个维度倒序
-    imag = np.transpose(imag, (2, 0, 1)) / 255.  # 转置成C*H*W
-    imag[0] -= means[0]  # reduce B's mean
-    imag[1] -= means[1]  # reduce G's mean
-    imag[2] -= means[2]  # reduce R's mean
+    imag = Image.fromarray(imag)
+    imag = IMAGE_NORMALIZER(imag)
+    imag = np.array(imag)
     imag = np.expand_dims(imag, axis=0)  # 增加维度，变成1*C*H*W，方便送入VGG
 
     inputs = torch.autograd.Variable(torch.from_numpy(imag).float())
@@ -54,21 +49,26 @@ if __name__ == '__main__':
 
     hist = model(inputs)[pick_layer]  # 得到预处理后的图像的输出特征
     hist = np.sum(hist.data.cpu().numpy(), axis=0)
-    hist /= np.sum(hist)  # normalize
+    hist /= np.sum(hist) + 1e-15  # normalize
 
     query = {'img': img, 'cls': None, 'hist': hist}
-    _, results = infer(query,
-                       mode1,
-                       samples=samples,
-                       lsh=lsh,
-                       depth=depth,
-                       d_type=d_type)
+    _, results = infer(query, mode1, samples=samples, lsh=lsh, depth=depth, d_type=d_type)
 
-    for i, e in enumerate(results):
-        img_path = e['img']
-        image = imageio.imread(img_path, pilmode="RGB")
+    # print(results)
+    ranked_list = []
+    for e in results:
+        ranked_list.append(e['img'].split('/')[-1][:-4])
 
-        plt.subplot(2, 5, i + 1)
-        plt.imshow(image)
+    with open('ranked_list.txt', 'w', encoding='UTF-8') as f:
+        for img_name in ranked_list:
+            f.write("{}\n".format(img_name))
 
-    plt.show()
+    print(ranked_list)
+    # for i, e in enumerate(results):
+    #     img_path = e['img']
+    #     image = imageio.imread(img_path, pilmode="RGB")
+    #
+    #     plt.subplot(2, 5, i+1)
+    #     plt.imshow(image)
+    #
+    # plt.show()
