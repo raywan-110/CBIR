@@ -1,7 +1,7 @@
 from __future__ import print_function
 
 from network import VGGNet
-
+import pandas as pd
 import faiss
 import torch
 import torchvision.transforms as transforms
@@ -92,8 +92,9 @@ class ModelFeat(object):
                     pass
             vecbase = np.array(vecbase).astype('float32')  # 转为float32类型的array，用于生成index
             d = vecbase.shape[1]  # 向量的维度
+            dicbase = pd.DataFrame(dicbase, columns=['cls','img'])
             if mode == 'Linear':
-                index_addr = 'vgg19-avg-index' 
+                index_addr = 'vgg19-sim-index' 
                 index = faiss.IndexFlatL2(d)  # 基于L2距离的暴力搜索
                 index.add(vecbase)
             else:
