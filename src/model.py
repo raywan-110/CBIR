@@ -68,7 +68,6 @@ class ModelFeat(object):
             dicbase = []
             data = db.get_data()
             for d in data.itertuples():  # 组成(Index,img,cls)的元组
-                id = d[0]  # 索引号
                 d_img, d_cls = getattr(d, "img"), getattr(d, "cls")
                 # 将图像读出来保存在numpy类型数组
                 img = imageio.imread(d_img, pilmode="RGB")  # 必须设置pilmode关键字参数为"RGB",否则无法处理灰度图
@@ -88,7 +87,7 @@ class ModelFeat(object):
                     d_hist = np.sum(d_hist.data.cpu().numpy(), axis=0)
                     d_hist /= np.sum(d_hist) + 1e-15  # normalize
                     vecbase.append(d_hist)  # 构建向量数据库
-                    dicbase.append(d_cls, d_img)  # 构建字典数据库
+                    dicbase.append((d_cls, d_img))  # 构建字典数据库
                 except:
                     pass
             vecbase = np.array(vecbase).astype('float32')  # 转为float32类型的array，用于生成index
