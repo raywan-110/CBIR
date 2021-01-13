@@ -2,7 +2,7 @@ from __future__ import print_function
 
 from network import VGGNet
 
-from lsh import LSHash
+import faiss
 import torch
 import torchvision.transforms as transforms
 from sklearn.decomposition import PCA
@@ -29,8 +29,9 @@ result_dir = 'result'
 result_csv = 'vgg19.csv'
 if not os.path.exists(result_dir):
     os.makedirs(result_dir)
-
-model = 'vgg19-oxf'
+# 向量数据库和字典数据库(存放标签和图片地址)的地址
+dic_addr = 'vgg19-sim-dict'
+vec_addr = 'vgg19-sim-vec'
 depth = 10
 d_type = 'cosine'  # distance type
 
@@ -44,24 +45,30 @@ IMAGE_NORMALIZER = transforms.Compose([transforms.ToTensor(),
 
 
 class ModelFeat(object):
-    def make_samples(self, db, verbose=True):
-        sample_cache = model
+    def make_samples(self, db, mode, verbose=True):
         try:
-            samples = cPickle.load(open(os.path.join(cache_dir, sample_cache), "rb", True))  # 从cache中读入并恢复python对象
-
+            dicbase =cPickle.load(open(os.path.join(cache_dir, dic_addr), "rb", True))
+            vecbase =cPickle.load(open(os.path.join(cache_dir, vec_addr), "rb", True))
+            if mode == 'Linear':
+                index_addr = 'vgg19-sim-index' 
+                index = faiss.read_index(os.path.join(cache_dir, index_addr))
+            else:
+                raise ValueError("you should choose a correct retrival mode")
             if verbose:
-                print("Using cache..., config=%s, distance=%s, depth=%s" % (sample_cache, d_type, depth))
+                print("Using cache..., config=%s, distance=%s, depth=%s" % (vec_addr, d_type, depth))
         # 没有则生成特征描述文件
         except:
             if verbose:
-                print("Counting histogram..., config=%s, distance=%s, depth=%s" % (sample_cache, d_type, depth))
+                print("Counting histogram..., config=%s, distance=%s, depth=%s" % (vec_addr, d_type, depth))
 
             base_model = VGGNet(load_model_path=LOAD_MODEL_PATH, requires_grad=False)
             if use_gpu:
                 base_model = base_model.cuda()
-            samples = []  # 构造存储特征的列表
+            vecbase = []
+            dicbase = []
             data = db.get_data()
             for d in data.itertuples():  # 组成(Index,img,cls)的元组
+                id = d[0]  # 索引号
                 d_img, d_cls = getattr(d, "img"), getattr(d, "cls")
                 # 将图像读出来保存在numpy类型数组
                 img = imageio.imread(d_img, pilmode="RGB")  # 必须设置pilmode关键字参数为"RGB",否则无法处理灰度图
@@ -80,26 +87,23 @@ class ModelFeat(object):
 
                     d_hist = np.sum(d_hist.data.cpu().numpy(), axis=0)
                     d_hist /= np.sum(d_hist) + 1e-15  # normalize
-                    samples.append({
-                        'img': d_img,  # y原图像
-                        'cls': d_cls,  # 类别标签
-                        'hist': d_hist  # 特征
-                    })
+                    vecbase.append(d_hist)  # 构建向量数据库
+                    dicbase.append(d_cls, d_img)  # 构建字典数据库
                 except:
                     pass
-            cPickle.dump(samples, open(os.path.join(cache_dir, sample_cache), "wb", True))  # 序列化后存入缓存中
+            vecbase = np.array(vecbase).astype('float32')  # 转为float32类型的array，用于生成index
+            d = vecbase.shape[1]  # 向量的维度
+            if mode == 'Linear':
+                index_addr = 'vgg19-avg-index' 
+                index = faiss.IndexFlatL2(d)  # 基于L2距离的暴力搜索
+                index.add(vecbase)
+            else:
+                raise ValueError("you should choose a correct retrival mode")
+            cPickle.dump(dicbase, open(os.path.join(cache_dir, dic_addr), "wb", True))  # 序列化后存入缓存中
+            cPickle.dump(vecbase, open(os.path.join(cache_dir, vec_addr), "wb", True))  # 序列化后存入缓存中
+            faiss.write_index(index, os.path.join(cache_dir, index_addr))  # 序列化后存入缓存中
 
-        try:
-            lsh = cPickle.load(open(os.path.join(lsh_Cache_dir, sample_cache), "rb", True))  # 读入hashtable
-        except:
-            # 需要重新生成
-            lsh = LSHash(hash_size=12, input_dim=feat_dim, num_hashtables=8)
-            for i, sample in enumerate(samples):
-                input_vec = sample['hist']
-                extra = (sample['img'], sample['cls'])
-                lsh.index(input_vec.flatten(), extra_data=extra)  # 哈希表中存储结构：[((vec),img,cls)]
-            cPickle.dump(lsh, open(os.path.join(lsh_Cache_dir, sample_cache), "wb", True))  # 序列化后存入缓存中
-        return samples, lsh
+        return index, dicbase, vecbase
 
 
 if __name__ == "__main__":

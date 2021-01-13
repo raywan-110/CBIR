@@ -2,7 +2,7 @@
 
 from __future__ import print_function
 
-from scipy import spatial
+# from scipy import spatial
 import numpy as np
 
 mode = 'Linear'
@@ -42,24 +42,17 @@ def distance(v1, v2, d_type='d1'):
         return np.sum((v1 - v2) ** 2)
 
 
-def AP(label, results, sort=True):
+def AP(label, results, dicbase):
     ''' infer a query, return it's ap
 
     arguments
       label  : query's class
-      results: a dict with two keys, see the example below
-               {
-                 'dis': <distance between sample & query>,
-                 'cls': <sample's class>
-               }
-      sort   : sort the results by distance
+      results: a list of ID, e.g.:[1,2,11,4]
     '''
-    if sort:
-        results = sorted(results, key=lambda x: x['dis'])
     precision = []
     hit = 0  # 命中的个数
     for i, result in enumerate(results):
-        if result['cls'] == label:
+        if dicbase.iloc[result,0] == label:
             hit += 1
             precision.append(hit / (i + 1.))
     if hit == 0:
@@ -174,11 +167,14 @@ def evaluate_class(db, f_class=None, f_instance=None, depth=None, d_type='d1'):
         f = f_class()
     elif f_instance:
         f = f_instance
-    samples, lsh = f.make_samples(db, mode)  # 调用f的make_samples的方法
-    for i, query in enumerate(samples[:50]):
-        # 传入samples与lsh表
-        ap, _ = infer(query, mode, samples=samples, lsh=lsh, depth=depth, d_type=d_type)
-        print("image{} finished!".format(i))
-        ret[query['cls']].append(ap)
-
+    index, dicbase, vecbase = f.make_samples(db, mode)  # 调用f的make_samples的方法
+    query = vecbase
+    query_label = dicbase.iloc[:,0]  # 标签
+    result_D, result_I = index.search(query, depth + 1)     # actual search
+    # 去除自身
+    result_D = result_D[:,1:]  
+    result_I = result_I[:,1:]
+    for results, label in zip(result_I, query_label):
+        ap = AP(label,results,dicbase)
+        ret[label].append(ap)  # 记录该类别的ap
     return ret
