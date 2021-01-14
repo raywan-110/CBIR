@@ -133,4 +133,7 @@ dmypy.json
 /cache/
 /lshCache
 /result
+/HNSW/
+/LSH/
 *test
+/oxbuild_images
