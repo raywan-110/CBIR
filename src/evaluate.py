@@ -149,7 +149,7 @@ def evaluate(db, sample_db_fn, depth=None, d_type='d1'):
     return ret
 
 
-def evaluate_class(db, f_class=None, f_instance=None, depth=None, d_type='d1'):
+def evaluate_class(db, f_class=None, f_instance=None, depth=None):
     ''' infer the whole database
 
     arguments

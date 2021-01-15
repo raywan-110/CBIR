@@ -1,16 +1,14 @@
 from DB import Database
 import numpy as np
-from network import VGGNet
+# from network import VGGNet
 from model import ModelFeat
 import imageio
 import torch
 import torchvision.transforms as transforms
 from PIL import Image
+import time
 
-DEPTH = 10
-D_TYPE = 'd2'
-mode1 = 'Linear'
-PICK_LAYER = 'avg'  # extract feature of this layer
+mode1 = "Linear"
 # LOAD_MODEL_PATH = 'trained_model/model_1.pth'
 LOAD_MODEL_PATH = None
 
@@ -18,7 +16,7 @@ IMAGE_NORMALIZER = transforms.Compose([transforms.ToTensor(),
                                        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
 
 
-def search(model, img_path, index, dicbase, pick_layer='avg'):
+def search(model, img_path, index, dicbase, depth=10, pick_layer='avg'):
     imag = imageio.imread(img_path, pilmode="RGB")
     imag = Image.fromarray(imag)
     imag = IMAGE_NORMALIZER(imag)
@@ -26,21 +24,30 @@ def search(model, img_path, index, dicbase, pick_layer='avg'):
     imag = np.expand_dims(imag, axis=0)  # 增加维度，变成1*C*H*W，方便送入VGG
 
     inputs = torch.autograd.Variable(torch.from_numpy(imag).float())
-    # if torch.cuda.is_available():
-    #     model = model.cuda()
-    #     inputs = inputs.cuda()
-    # else:
-    model.cpu()
-    inputs.cpu()
+    if torch.cuda.is_available():
+        model = model.cuda()
+        inputs = inputs.cuda()
+    else:
+        model.cpu()
+        inputs.cpu()
 
-    hist = model(inputs)[pick_layer]  # 得到预处理后的图像的输出特征
-    hist = np.sum(hist.data.cpu().numpy(), axis=0)
-    hist /= np.sum(hist) + 1e-15  # normalize
+    # hist = model(inputs)[pick_layer]
+    t1 = time.time()
+    hist = model(inputs)
+    t2 = time.time()
+    print("model time: {}".format(t2 - t1))
 
+    hist = hist.data.cpu().numpy()
     hist = hist.reshape(1, -1)
-    result_D, result_I = index.search(hist, 10 + 1)
-    result_D = result_D[:, 1:]
-    result_I = result_I[:, 1:]
+    # hist = np.sum(hist.data.cpu().numpy(), axis=0)
+    # hist /= np.sum(hist) + 1e-15  # normalize
+    # print(hist.shape)
+
+    result_D, result_I = index.search(hist, depth)
+    t3 = time.time()
+    print("search time: {}".format(t3 - t2))
+    # result_D = result_D[:, 1:]
+    # result_I = result_I[:, 1:]
     result_I = result_I.reshape(-1)
 
     img_path = dicbase.iloc[:, 1].values
@@ -48,7 +55,7 @@ def search(model, img_path, index, dicbase, pick_layer='avg'):
     results = img_path[result_I]
     return results
 
-
+'''
 if __name__ == '__main__':
     db = Database()
     img = '../oxbuild_images/all_souls_000013.jpg'
@@ -78,3 +85,4 @@ if __name__ == '__main__':
     #     plt.imshow(image)
     #
     # plt.show()
+'''
