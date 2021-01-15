@@ -5,8 +5,8 @@ from __future__ import print_function
 import pandas as pd
 import os
 
-DB_dir = 'database'
-DB_csv = 'data.csv'
+DB_dir = '..\\oxbuild_images'
+DB_csv = '..\\oxbuild_images.csv'
 
 # 建立图像数据库的索引文件
 class Database(object):
