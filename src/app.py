@@ -111,6 +111,8 @@ class Result(QDialog):
         loadUi(os.path.join("ui\\result.ui"), self)
         self.setModal(True)
         self.setWindowModality(Qt.ApplicationModal)  # 不关闭子窗口不可显示
+        self.setWindowTitle('result')
+        self.setWindowIcon(qg.QIcon('ui\\favicon.ico'))
         # self.label_1.setScaledContents(True)
         # self.label_2.setScaledContents(True)
         # self.label_3.setScaledContents(True)
