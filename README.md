@@ -1,13 +1,11 @@
-# 基于局部敏感哈希与深度模型的CBIR系统
+# 基于PQ+IVF与深度模型的CBIR系统
 ## contributor: **Borui Wan Yu Cai**
 ## 概述
-> - **特征提取**：采用imagenet上预训练好的vggnet进行特征提取
-> - **索引构建与优化**: 采用vggnet average features构建词袋
-> - 检索算法：1. 线性查找 2.**带随机投影矩阵(特征降维，优化索引)的局部敏感哈希**(LSH)
+> - **特征提取**：采用Resnet101+GeM Pooling上进行特征提取(预训练的网络)
+> - **索引构建与优化**: 采用矢量量化(PQ)+倒排索引(IVF)构建特征数据库，并进行检索。(利用Faiss库实现此功能)
 ## 数据库
-> 采用9144张图片, 101类别的小型图像数据库进行初步测试.
-## 结果
-| 模型 | 描述子  | 检索算法  | 距离函数  | MMAP  |  average time(CPU)  |
+> 采用51805张图片, 361类别的小型图像数据库进行初步测试.
+## Oxford Building测试结果
+| 模型 | 池化方法  | 检索算法  | 距离函数  | MMAP  |  average time(TiTan Xp)  |
 | ---- | ---- | ---- | ---- | ---- | ---- |
-| vggnet | average features | Linear search | cosine | 77.0315% | 0.6130s |
-| vggnet | average features | LSH(with random projection) | cosine | **98.6919%** | **0.0165s** |
+| resnet101 | GeM Pooling | PQ+IVF | L2 | 84.28% | 0.01s |
