@@ -47,10 +47,10 @@ if not os.path.exists(result_dir):
 
 Odic_addr = 'res101_AP_GeM-oxf-dict'
 Ovec_addr = 'res101_AP_GeM-oxf-vec'
-Oindex_addr = 'res101_AP_GeM-oxf-index'
+Oindex_addr = 'res101_AP_GeM-oxf-indexIPQ'
 Ddic_addr = 'res101_AP_GeM-database-dict'
 Dvec_addr = 'res101_AP_GeM-database-vec'
-Dindex_addr = 'res101_AP_GeM-database-index'
+Dindex_addr = 'res101_AP_GeM-database-indexIPQ'
 depth = 10
 
 # LOAD_MODEL_PATH = None
