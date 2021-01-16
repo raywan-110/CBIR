@@ -21,6 +21,8 @@ from evaluate import evaluate_class
 from DB import Database
 
 
+
+
 def load_model(path, iscuda):
     checkpoint = common.load_checkpoint(path, iscuda)
     net = nets.create_model(pretrained="", **checkpoint['model_options'])
@@ -43,12 +45,12 @@ result_csv = 'vgg16.csv'
 if not os.path.exists(result_dir):
     os.makedirs(result_dir)
 
-dic_addr = 'res101_AP_GeM-oxf-dict'
-vec_addr = 'res101_AP_GeM-oxf-vec'
-index_addr = 'res101_AP_GeM-oxf-index'
-# dic_addr = 'vgg-oxf-dict'
-# vec_addr = 'vgg-oxf-vec'
-# index_addr = 'vgg-oxf-index'
+Odic_addr = 'res101_AP_GeM-oxf-dict'
+Ovec_addr = 'res101_AP_GeM-oxf-vec'
+Oindex_addr = 'res101_AP_GeM-oxf-index'
+Ddic_addr = 'res101_AP_GeM-database-dict'
+Dvec_addr = 'res101_AP_GeM-database-vec'
+Dindex_addr = 'res101_AP_GeM-database-index'
 depth = 10
 
 # LOAD_MODEL_PATH = None
@@ -65,12 +67,22 @@ REMOVE_FC = False
 
 class ModelFeat(object):
     @staticmethod
-    def make_samples(db, mode, verbose=True):
+    def make_samples(db, mode, is_Oxford=False, verbose=True):
+        if is_Oxford:
+            dic_addr = Odic_addr
+            vec_addr = Odic_addr
+            index_addr = Oindex_addr
+        else:
+            dic_addr = Ddic_addr
+            vec_addr = Ddic_addr
+            index_addr = Dindex_addr
         try:
+            print()
             dicbase = cPickle.load(open(os.path.join(cache_dir, dic_addr), "rb", True))
             vecbase = cPickle.load(open(os.path.join(cache_dir, vec_addr), "rb", True))
             if mode == 'Linear':
                 index = faiss.read_index(os.path.join(cache_dir, index_addr))
+                print(index)
             else:
                 raise ValueError("you should choose a correct retrival mode")
             if verbose:
