@@ -21,8 +21,6 @@ from evaluate import evaluate_class
 from DB import Database
 
 
-
-
 def load_model(path, iscuda):
     checkpoint = common.load_checkpoint(path, iscuda)
     net = nets.create_model(pretrained="", **checkpoint['model_options'])
@@ -34,16 +32,13 @@ def load_model(path, iscuda):
     return net
 
 
-use_gpu = torch.cuda.is_available()
+# use_gpu = torch.cuda.is_available()
 # torch.cuda.set_device(2)
+use_gpu = False
+
 
 # cache dir
-cache_dir = '../cache'
-
-result_dir = 'result'
-result_csv = 'vgg16.csv'
-if not os.path.exists(result_dir):
-    os.makedirs(result_dir)
+cache_dir = '..\\cache'
 
 Odic_addr = 'res101_AP_GeM-oxf-dict'
 Ovec_addr = 'res101_AP_GeM-oxf-vec'
@@ -52,6 +47,7 @@ Ddic_addr = 'res101_AP_GeM-database-dict'
 Dvec_addr = 'res101_AP_GeM-database-vec'
 Dindex_addr = 'res101_AP_GeM-database-indexIPQ'
 depth = 10
+isOxford = True
 
 # LOAD_MODEL_PATH = None
 # LOAD_MODEL_PATH = '../model/imagenet-caffe-vgg16-features-d369c8e.pth'
@@ -67,7 +63,7 @@ REMOVE_FC = False
 
 class ModelFeat(object):
     @staticmethod
-    def make_samples(db, mode, is_Oxford=False, verbose=True):
+    def make_samples(db, mode, is_Oxford=isOxford, verbose=True):
         if is_Oxford:
             dic_addr = Odic_addr
             vec_addr = Odic_addr
@@ -77,12 +73,11 @@ class ModelFeat(object):
             vec_addr = Ddic_addr
             index_addr = Dindex_addr
         try:
-            print()
             dicbase = cPickle.load(open(os.path.join(cache_dir, dic_addr), "rb", True))
+            # print(dicbase)
             vecbase = cPickle.load(open(os.path.join(cache_dir, vec_addr), "rb", True))
             if mode == 'Linear':
                 index = faiss.read_index(os.path.join(cache_dir, index_addr))
-                print(index)
             else:
                 raise ValueError("you should choose a correct retrival mode")
             if verbose:
@@ -126,7 +121,7 @@ class ModelFeat(object):
                 if use_gpu:
                     inputs = torch.autograd.Variable(torch.from_numpy(img).cuda().float())
                 else:
-                    inputs = torch.autograd.Variable(torch.from_numpy(img).float())
+                    inputs = torch.from_numpy(img)
 
                 d_hist = base_model(inputs).view(-1, )
                 d_hist = d_hist.data.cpu().numpy()
@@ -160,15 +155,15 @@ if __name__ == "__main__":
     APs = evaluate_class(db, f_class=ModelFeat, depth=depth)
     end = time.time()
 
-    cls_MAPs = []
-    with open(os.path.join(result_dir, result_csv), 'w', encoding='UTF-8') as f:
-        f.write("Vgg16-oxf-cosine result: MAP&MMAP")
-        for cls, cls_APs in APs.items():
-            MAP = np.mean(cls_APs)
-            print("Class {}, MAP {}".format(cls, MAP))
-            f.write("\nClass {}, MAP {}".format(cls, MAP))
-            cls_MAPs.append(MAP)
-        print("MMAP", np.mean(cls_MAPs))
-        f.write("\nMMAP {}".format(np.mean(cls_MAPs)))
-        print("total time:", end - start)
-        f.write("\ntotal time:{0:.4f}s".format(end - start))
+    # cls_MAPs = []
+    # with open(os.path.join(result_dir, result_csv), 'w', encoding='UTF-8') as f:
+    #     f.write("Vgg16-oxf-cosine result: MAP&MMAP")
+    #     for cls, cls_APs in APs.items():
+    #         MAP = np.mean(cls_APs)
+    #         print("Class {}, MAP {}".format(cls, MAP))
+    #         f.write("\nClass {}, MAP {}".format(cls, MAP))
+    #         cls_MAPs.append(MAP)
+    #     print("MMAP", np.mean(cls_MAPs))
+    #     f.write("\nMMAP {}".format(np.mean(cls_MAPs)))
+    #     print("total time:", end - start)
+    #     f.write("\ntotal time:{0:.4f}s".format(end - start))
