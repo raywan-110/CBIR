@@ -76,10 +76,7 @@ class ModelFeat(object):
             dicbase = cPickle.load(open(os.path.join(cache_dir, dic_addr), "rb", True))
             # print(dicbase)
             vecbase = cPickle.load(open(os.path.join(cache_dir, vec_addr), "rb", True))
-            if mode == 'Linear':
-                index = faiss.read_index(os.path.join(cache_dir, index_addr))
-            else:
-                raise ValueError("you should choose a correct retrival mode")
+            index = faiss.read_index(os.path.join(cache_dir, index_addr))
             if verbose:
                 print("Using cache..., config=%s, depth=%s" % (vec_addr, depth))
 
@@ -138,6 +135,14 @@ class ModelFeat(object):
             dicbase = pd.DataFrame(dicbase, columns=['cls', 'img'])
             if mode == 'Linear':
                 index = faiss.IndexFlatL2(d)
+                index.add(vecbase)
+            elif mode == 'IVFPQ':
+                n_list = 100
+                n_bits = 8
+                coarse_quantizer = faiss.IndexFlatL2(d)
+                index = faiss.IndexIVFPQ(coarse_quantizer, d, n_list, 8, n_bits)
+                index.nprobe = 10
+                index.train(vecbase)
                 index.add(vecbase)
             else:
                 raise ValueError("you should choose a correct retrival mode")

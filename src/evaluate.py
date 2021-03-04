@@ -5,8 +5,7 @@ from __future__ import print_function
 # from scipy import spatial
 import numpy as np
 from scipy import spatial
-mode = 'Linear'
-
+mode = 'IVFPQ'
 
 class Evaluation(object):
     def make_samples(self):
